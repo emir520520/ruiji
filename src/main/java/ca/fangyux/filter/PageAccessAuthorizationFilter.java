@@ -30,7 +30,9 @@ public class PageAccessAuthorizationFilter implements Filter {
                 "/employee/login",
                 "/employee/logout",
                 "/backend/**",
-                "/front/**"
+                "/front/**",
+                "/user/sendMsg",
+                "/user/login"
         };
 
         //3.判断请求是否需要登陆
@@ -41,10 +43,20 @@ public class PageAccessAuthorizationFilter implements Filter {
             return;
         }
 
-        //4.判断登录状态
+        //4.1 判断后台人员登录状态
         if(httpRequest.getSession().getAttribute("employeeId")!=null){
             //将当前登录用户的id存入BaseContext中，以便在同一请求线程中的不同类里共享数据
             Long id= (Long) ((HttpServletRequest) request).getSession().getAttribute("employeeId");
+            BaseContext.setCurrentLoginUserId(id);
+
+            chain.doFilter(httpRequest,httpResponse);
+            return;
+        }
+
+        //4.2 判断移动端用户登录状态
+        if(httpRequest.getSession().getAttribute("userId")!=null){
+            //将当前登录用户的id存入BaseContext中，以便在同一请求线程中的不同类里共享数据
+            Long id= (Long) ((HttpServletRequest) request).getSession().getAttribute("userId");
             BaseContext.setCurrentLoginUserId(id);
 
             chain.doFilter(httpRequest,httpResponse);
