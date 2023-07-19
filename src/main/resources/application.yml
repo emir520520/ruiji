@@ -1,5 +1,6 @@
 server:
   port: 8080
+
 spring:
   application:
     name: reggie_take_out
@@ -9,6 +10,12 @@ spring:
       url: jdbc:mysql://localhost:3306/reiji?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
       username: root
       password: root
+  redis:
+    host: 10.211.55.4
+    port: 6379
+    password: root
+    database: 0
+
 mybatis-plus:
   configuration:
     #在映射实体或者属性时，将数据库中表名和字段名中的下划线去掉，按照驼峰命名法映射
