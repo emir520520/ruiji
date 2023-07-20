@@ -13,10 +13,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 //菜品管理
 @RestController
@@ -32,9 +34,16 @@ public class DishController {
     @Autowired
     private CategoryService categoryService;
 
+    @Autowired
+    private RedisTemplate redisTemplate;
+
     @PostMapping
     public R<String> saveDish(@RequestBody DishDto dishDto){
         dishService.saveWithFlavor(dishDto);
+
+        //新增菜品的同时，清理缓存，避免脏数据
+        String key="dish-"+dishDto.getCategoryId()+ "-1";
+        redisTemplate.delete(key);
 
         return R.success("菜品添加成功");
     }
@@ -87,19 +96,34 @@ public class DishController {
     public R<String> updateDish(@RequestBody DishDto dishDto){
         dishService.updateWithFlavor(dishDto);
 
+        //修改菜品信息的同时，清理缓存，避免脏数据
+        String key="dish-"+dishDto.getCategoryId()+ "-1";
+        redisTemplate.delete(key);
+
         return R.success("菜品修改成功");
     }
 
     @GetMapping("/list")
     public R<List<DishDto>> getDishByCategory(Dish dish){
+        List<DishDto> dtoList=null;
+
+        //从Redis获取缓存。如果存在缓存数据，就无需查询数据库
+        String key="dish-"+dish.getCategoryId()+"-"+dish.getStatus();
+
+        dtoList= (List<DishDto>) redisTemplate.opsForValue().get(key);
+
+        if(dtoList!=null){
+            return R.success(dtoList);
+        }
+
+        dtoList=new ArrayList<>();
+
         LambdaQueryWrapper<Dish> queryWrapper=new LambdaQueryWrapper<>();
         queryWrapper.eq(dish.getCategoryId()!=null,Dish::getCategoryId,dish.getCategoryId());
         queryWrapper.eq(Dish::getStatus,1);
         queryWrapper.orderByAsc(Dish::getSort).orderByDesc(Dish::getUpdateTime);
 
         List<Dish> list=dishService.list(queryWrapper);
-
-        List<DishDto> dtoList=new ArrayList<>();
 
         for(int i=0;i<list.size();i++){
             DishDto dishdto = new DishDto();
@@ -118,6 +142,9 @@ public class DishController {
 
             dtoList.add(dishdto);
         }
+
+        //如果没有缓存数据，就查询数据库并将数据缓存到Redis
+        redisTemplate.opsForValue().set(key,dtoList,60, TimeUnit.MINUTES);
 
         return R.success(dtoList);
     }
